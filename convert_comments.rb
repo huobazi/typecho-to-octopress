@@ -1,0 +1,112 @@
+# coding: utf-8
+require "rubygems"
+require 'builder'
+require "sequel"
+require "fileutils"
+require "iconv"
+
+converter = Iconv.new 'UTF-8//IGNORE', 'UTF-8'
+
+
+db_host = '127.0.0.1'
+db_name = 'huobazi_typecho'
+db_user = 'root'
+db_password = ''
+db_table_prefix = 'huobazi_aspxboy_typecho'
+
+FileUtils.mkdir_p '_comments'
+db = Sequel.mysql(db_name, :user => db_user,  :password => db_password, :host => db_host, :encoding => 'utf8')
+
+posts_query = <<-EOS
+			SELECT
+				cid
+				,title
+				,slug
+				,created
+				,modified
+				,text
+				,status
+			 FROM #{db_table_prefix}_contents
+			 WHERE
+			 	type='post'
+ EOS
+
+comments_query = <<-EOS
+SELECT * FROM #{db_table_prefix}_comments 
+WHERE type ='comment' and  cid = %d
+EOS
+
+output = ''
+xml = Builder::XmlMarkup.new(:target => output, :indent => 2)
+xml.instruct!(:xml, :encoding => "UTF-8")
+xml.rss(
+  :version => '2.0', 
+  'xmlns:dsq' => "http://www.disqus.com/",
+  'xmlns:content' => "http://purl.org/rss/1.0/modules/content/",
+	'xmlns:dc' => "http://purl.org/dc/elements/1.1/",
+	'xmlns:wp' => "http://wordpress.org/export/1.0/"
+)
+xml.channel do
+  xml.title "Marble\'s Blog"
+  xml.link 'http://huobazi.aspxboy.com'
+  xml.description "Marble\'s Blog"
+  xml.pubDate( Time.now.strftime("%a, %d %b %Y %H:%M:%S %z") )
+  xml.generator 'Builder::XmlMarkup'
+  xml.language 'zh-cn'
+  xml.tag!('wp:wxr_version', '1.0' ) 
+  xml.wp(:wxr_version, '1.0' ) 
+  xml.wp(:base_site_url, 'http://huobazi.aspxboy.com' ) 
+  xml.wp(:base_blog_url, 'http://huobazi.aspxboy.com')
+  
+  db[posts_query].each do |post|
+  	date = Time.at post[:created]
+  	post_title = post[:title]
+
+  	post_id = post[:cid]
+  	post_slug = post[:slug].downcase
+  	post_url = 'http://huobazi.aspxboy.com/blog/' + "%02d/%02d/%02d/%s/" % [date.year, date.month, date.day, post_slug]
+
+    xml.item do 
+      xml.link post_url
+      xml.title post_title
+      xml.pubDate( date.strftime("%a, %d %b %Y %H:%M:%S %z") )
+      xml.dc(:creator) { xml.cdata!('Marble Wu') }
+      xml.guid( post_url, :isPermalink => 'true' )
+      xml.wp_id post_id.to_s
+      xml.wp(:id, post_id.to_s)
+      xml.wp(:post_id, post_id.to_s)
+      xml.wp(:post_date, date.strftime("%a, %d %b %Y %H:%M:%S %z") )
+  	  xml.wp(:post_date_gmt, '0000-00-00 00:00:00')
+      xml.wp(:comment_status, 'open')
+      xml.wp(:ping_status, 'open')
+      xml.wp(:status, 'published')
+      xml.wp(:post_parent, '0')
+      xml.wp(:post_type, 'post')
+
+      db[comments_query % post_id].each do |comment|
+        xml.wp(:comment) do
+          xml.wp(:comment_id, comment[:coid])
+          xml.wp(:comment_author) { xml.cdata!(converter.iconv comment[:author]) }
+          xml.wp(:comment_author_email, comment[:mail])
+          xml.wp(:comment_author_url, comment[:url])
+          xml.wp(:comment_author_IP, comment[:ip])
+          xml.wp(:comment_date, Time.at(comment[:created]).strftime("%a, %d %b %Y %H:%M:%S %z") )
+          xml.wp(:comment_date_gmt, Time.at(comment[:created]).strftime("%a, %d %b %Y %H:%M:%S %z") )
+          xml.wp(:comment_content) do
+            xml.cdata!( converter.iconv comment[:text]) 
+          end
+          approved = comment[:status] == 'approved' ? 1 : 0
+          xml.wp(:comment_approved, approved.to_s)
+          xml.wp(:comment_type)
+          xml.wp(:comment_parent, '0')
+          xml.wp(:comment_user_id, '0')
+        end
+      end
+    end
+  end
+end
+
+
+File.open("_comments/comments.xml", "w") do |f|
+f.puts output
+end
