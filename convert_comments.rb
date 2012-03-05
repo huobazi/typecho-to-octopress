@@ -89,16 +89,17 @@ xml.rss(
           xml.wp(:comment) do
             email = comment[:mail]
             if(email == 'mail@localhost.com')
-              email = 'mail_' + comment[:coid] + '@localhost.com'
+              email = 'mail_' + comment[:coid].to_s + '@localhost.com'
             end
             xml.wp(:comment_id, comment[:coid])
             xml.wp(:comment_author) { xml.cdata!(converter.iconv comment[:author]) }
-            xml.wp(:comment_author_email, email])
+            xml.wp(:comment_author_email, email)
             xml.wp(:comment_author_url, comment[:url])
             xml.wp(:comment_author_IP, comment[:ip])
             xml.wp(:comment_date_gmt, Time.at(comment[:created]).strftime("%Y-%d-%m %H:%M:%S") )
             xml.wp(:comment_content) do
-              comment_body = converter.iconv comment[:text].gsub('�','')
+              comment_body = converter.iconv comment[:text]
+              comment_body = comment_body.gsub('�','')
               xml.cdata!( comment_body ) 
             end
             approved = comment[:status] == 'approved' ? 1 : 0
