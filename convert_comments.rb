@@ -4,6 +4,7 @@ require 'builder'
 require "sequel"
 require "fileutils"
 require "iconv"
+require 'sanitize'
 
 converter = Iconv.new 'UTF-8//IGNORE', 'UTF-8'
 
@@ -45,72 +46,76 @@ xml.rss(
   'xmlns:content' => "http://purl.org/rss/1.0/modules/content/",
 	'xmlns:dc' => "http://purl.org/dc/elements/1.1/",
 	'xmlns:wp' => "http://wordpress.org/export/1.0/"
-)
-xml.channel do
-  xml.title "Marble\'s Blog"
-  xml.link 'http://huobazi.aspxboy.com'
-  xml.description "Marble\'s Blog"
-  xml.pubDate( Time.now.strftime("%a, %d %b %Y %H:%M:%S %z") )
-  xml.generator 'Builder::XmlMarkup'
-  xml.language 'zh-cn'
-  xml.tag!('wp:wxr_version', '1.0' ) 
-  xml.wp(:wxr_version, '1.0' ) 
-  xml.wp(:base_site_url, 'http://huobazi.aspxboy.com' ) 
-  xml.wp(:base_blog_url, 'http://huobazi.aspxboy.com')
-  
-  db[posts_query].each do |post|
-  	date = Time.at post[:created]
-  	post_title = post[:title]
+) do
+  xml.channel do
+    xml.title "Marble\'s Blog"
+    xml.link 'http://huobazi.aspxboy.com'
+    xml.description "Marble\'s Blog"
+    xml.pubDate( Time.now.strftime("%a, %d %b %Y %H:%M:%S %z") )
+    xml.generator 'Builder::XmlMarkup'
+    xml.language 'zh-cn'
+    xml.tag!('wp:wxr_version', '1.0' ) 
+    xml.wp(:wxr_version, '1.0' ) 
+    xml.wp(:base_site_url, 'http://huobazi.aspxboy.com' ) 
+    xml.wp(:base_blog_url, 'http://huobazi.aspxboy.com')
+    
+    db[posts_query].each do |post|
+    	date = Time.at post[:created]
+    	post_title = post[:title]
 
-  	post_id = post[:cid]
-  	post_slug = post[:slug].downcase
-  	post_url = 'http://huobazi.aspxboy.com/blog/' + "%02d/%02d/%02d/%s/" % [date.year, date.month, date.day, post_slug]
+    	post_id = post[:cid]
+    	post_slug = post[:slug].downcase
+    	post_url = 'http://huobazi.aspxboy.com/blog/' + "%02d/%02d/%02d/%s/" % [date.year, date.month, date.day, post_slug]
 
-    xml.item do 
-      xml.link post_url
-      xml.title post_title
-      xml.pubDate( date.strftime("%a, %d %b %Y %H:%M:%S %z") )
-      xml.dc(:creator) { xml.cdata!('Marble Wu') }
-      xml.guid( post_url, :isPermalink => 'true' )
-      xml.wp_id post_id.to_s
-      xml.wp(:id, post_id.to_s)
-      xml.wp(:post_id, post_id.to_s)
-      xml.wp(:post_date, date.strftime("%a, %d %b %Y %H:%M:%S %z") )
-  	  xml.wp(:post_date_gmt, '0000-00-00 00:00:00')
-      xml.wp(:comment_status, 'open')
-      xml.wp(:ping_status, 'open')
-      xml.wp(:status, 'published')
-      xml.wp(:post_parent, '0')
-      xml.wp(:post_type, 'post')
-
-      db[comments_query % post_id].each do |comment|
-        xml.wp(:comment) do
-          email = comment[:mail]
-          if(email == 'mail@localhost.com')
-            email = 'mail_' + comment[:coid] + '@localhost.com'
+      xml.item do 
+        xml.link post_url
+        xml.title post_title
+        xml.pubDate( date.strftime("%a, %d %b %Y %H:%M:%S %z") )
+        xml.dc(:creator) { xml.cdata!('Marble Wu') }
+        xml.guid( post_url, :isPermalink => 'true' )
+        xml.wp_id post_id.to_s
+        xml.wp(:id, post_id.to_s)
+        xml.wp(:post_id, post_id.to_s)
+    	  xml.wp(:post_date_gmt, date.strftime("%Y-%d-%m %H:%M:%S") )
+        xml.wp(:comment_status, 'open')
+        xml.wp(:ping_status, 'open')
+        xml.wp(:status, 'published')
+        xml.wp(:post_parent, '0')
+        xml.wp(:post_type, 'post')
+        xml.dsq(:thread_identifier, post_url)
+        xml.content(:encoded) do
+              xml.cdata!('') 
+        end
+        db[comments_query % post_id].each do |comment|
+          xml.wp(:comment) do
+            email = comment[:mail]
+            if(email == 'mail@localhost.com')
+              email = 'mail_' + comment[:coid] + '@localhost.com'
+            end
+            xml.wp(:comment_id, comment[:coid])
+            xml.wp(:comment_author) { xml.cdata!(converter.iconv comment[:author]) }
+            xml.wp(:comment_author_email, email])
+            xml.wp(:comment_author_url, comment[:url])
+            xml.wp(:comment_author_IP, comment[:ip])
+            xml.wp(:comment_date_gmt, Time.at(comment[:created]).strftime("%Y-%d-%m %H:%M:%S") )
+            xml.wp(:comment_content) do
+              comment_body = converter.iconv comment[:text].gsub('�','')
+              comment_body = Sanitize.clean comment_body
+              xml.cdata!( comment_body ) 
+            end
+            approved = comment[:status] == 'approved' ? 1 : 0
+            xml.wp(:comment_approved, approved.to_s)
+            xml.wp(:comment_type)
+            xml.wp(:comment_parent, '0')
+            xml.wp(:comment_user_id, '0')
           end
-          xml.wp(:comment_id, comment[:coid])
-          xml.wp(:comment_author) { xml.cdata!(converter.iconv comment[:author]) }
-          xml.wp(:comment_author_email, email])
-          xml.wp(:comment_author_url, comment[:url])
-          xml.wp(:comment_author_IP, comment[:ip])
-          xml.wp(:comment_date, Time.at(comment[:created]).strftime("%a, %d %b %Y %H:%M:%S %z") )
-          xml.wp(:comment_date_gmt, Time.at(comment[:created]).strftime("%a, %d %b %Y %H:%M:%S %z") )
-          xml.wp(:comment_content) do
-            xml.cdata!( converter.iconv comment[:text]) 
-          end
-          approved = comment[:status] == 'approved' ? 1 : 0
-          xml.wp(:comment_approved, approved.to_s)
-          xml.wp(:comment_type)
-          xml.wp(:comment_parent, '0')
-          xml.wp(:comment_user_id, '0')
         end
       end
     end
   end
 end
 
-
-File.open("_comments/comments.xml", "w") do |f|
+date_time_text = Time.now.strftime("%Y-%d-%m-%H-%M-%S")
+File.open("_comments/comments" + date_time_text + ".xml", "w") do |f|
 f.puts output
 end
