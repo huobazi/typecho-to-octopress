@@ -4,7 +4,6 @@ require 'builder'
 require "sequel"
 require "fileutils"
 require "iconv"
-require 'sanitize'
 
 converter = Iconv.new 'UTF-8//IGNORE', 'UTF-8'
 
@@ -100,7 +99,6 @@ xml.rss(
             xml.wp(:comment_date_gmt, Time.at(comment[:created]).strftime("%Y-%d-%m %H:%M:%S") )
             xml.wp(:comment_content) do
               comment_body = converter.iconv comment[:text].gsub('�','')
-              comment_body = Sanitize.clean comment_body
               xml.cdata!( comment_body ) 
             end
             approved = comment[:status] == 'approved' ? 1 : 0
