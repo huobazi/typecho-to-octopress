@@ -85,9 +85,13 @@ xml.channel do
 
       db[comments_query % post_id].each do |comment|
         xml.wp(:comment) do
+          email = comment[:mail]
+          if(email == 'mail@localhost.com')
+            email = 'mail_' + comment[:coid] + '@localhost.com'
+          end
           xml.wp(:comment_id, comment[:coid])
           xml.wp(:comment_author) { xml.cdata!(converter.iconv comment[:author]) }
-          xml.wp(:comment_author_email, comment[:mail])
+          xml.wp(:comment_author_email, email])
           xml.wp(:comment_author_url, comment[:url])
           xml.wp(:comment_author_IP, comment[:ip])
           xml.wp(:comment_date, Time.at(comment[:created]).strftime("%a, %d %b %Y %H:%M:%S %z") )
