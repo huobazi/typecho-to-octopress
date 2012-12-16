@@ -9,12 +9,12 @@ require 'open-uri'
 
 
 db_host = '127.0.0.1'
-db_name = 'huobazi_typecho'
+db_name = 'techblog'
 db_user = 'root'
 db_password = ''
-db_table_prefix = 'huobazi_aspxboy_typecho'
+db_table_prefix = 'typecho'
 
-online_blog_prefix = 'http://huobazi.aspxboy.com/index.php/archives/'
+online_blog_prefix = 'http://www.youth2009.org/archives/'
 
 %w(_posts _drafts).each{|folder| FileUtils.mkdir_p folder}
 
@@ -48,7 +48,7 @@ EOS
 
 def get_online_post_body(url)
   doc = Nokogiri::HTML(open(url))
-  text = doc.xpath("//div[@class='entry clear']").inner_html  
+  text = doc.xpath("//div[@class='entry']").inner_html  
   text = text.gsub('<BR>','<br>').gsub('<br>','<br />').gsub(/\t\t\t\t\t/,'')
 end
 
@@ -63,22 +63,23 @@ db[posts_query].each do |post|
       
       db[metas_query % post[:cid]].each do |c|
        	if(c[:type] == 'tag')
-       		tags<< c[:name]
+       		tags<< c[:name].force_encoding("UTF-8")
        	elsif(c[:type] == 'category')
-       		tags << c[:description]
+       		tags << c[:description].force_encoding("UTF-8")
        	end
       end
 
       summary = {
          'layout' => 'post',
-         'title' => title.to_s,
+         'title' => title.to_s.force_encoding("UTF-8"),
          'comments' => true,
          'date' => date.strftime("%Y-%m-%d %H:%M"),
          'categories' => tags
        }.delete_if { |k,v| v.nil? || v == ''}.to_yaml
-
+       
       File.open( (status == 'publish' ? '_posts' : '_drafts') + "/#{name}", "w") do |f|
         f.puts summary
+        puts summary
         f.puts "---"
         f.puts body
       end

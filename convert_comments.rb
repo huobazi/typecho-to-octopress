@@ -9,10 +9,10 @@ converter = Iconv.new 'UTF-8//IGNORE', 'UTF-8'
 
 
 db_host = '127.0.0.1'
-db_name = 'huobazi_typecho'
+db_name = 'techblog'
 db_user = 'root'
 db_password = ''
-db_table_prefix = 'huobazi_aspxboy_typecho'
+db_table_prefix = 'typecho'
 
 FileUtils.mkdir_p '_comments'
 db = Sequel.mysql(db_name, :user => db_user,  :password => db_password, :host => db_host, :encoding => 'utf8')
@@ -47,16 +47,16 @@ xml.rss(
 	'xmlns:wp' => "http://wordpress.org/export/1.0/"
 ) do
   xml.channel do
-    xml.title "Marble\'s Blog"
-    xml.link 'http://huobazi.aspxboy.com'
-    xml.description "Marble\'s Blog"
+    xml.title "dawncold\'s tech blog"
+    xml.link 'http://www.youth2009.org'
+    xml.description "dawncold\'s tech blog"
     xml.pubDate( Time.now.strftime("%a, %d %b %Y %H:%M:%S %z") )
     xml.generator 'Builder::XmlMarkup'
     xml.language 'zh-cn'
     xml.tag!('wp:wxr_version', '1.0' ) 
     xml.wp(:wxr_version, '1.0' ) 
-    xml.wp(:base_site_url, 'http://huobazi.aspxboy.com' ) 
-    xml.wp(:base_blog_url, 'http://huobazi.aspxboy.com')
+    xml.wp(:base_site_url, 'http://www.youth2009.org' ) 
+    xml.wp(:base_blog_url, 'http://www.youth2009.org')
     
     db[posts_query].each do |post|
     	date = Time.at post[:created]
@@ -64,13 +64,13 @@ xml.rss(
 
     	post_id = post[:cid]
     	post_slug = post[:slug].downcase
-    	post_url = 'http://huobazi.aspxboy.com/blog/' + "%02d/%02d/%02d/%s/" % [date.year, date.month, date.day, post_slug]
+    	post_url = 'http://http://www.youth2009.org/' + "%02d/%02d/%02d/%s/" % [date.year, date.month, date.day, post_slug]
 
       xml.item do 
         xml.link post_url
         xml.title post_title
         xml.pubDate( date.strftime("%a, %d %b %Y %H:%M:%S %z") )
-        xml.dc(:creator) { xml.cdata!('Marble Wu') }
+        xml.dc(:creator) { xml.cdata!('dawncold') }
         xml.guid( post_url, :isPermalink => 'true' )
         xml.wp_id post_id.to_s
         xml.wp(:id, post_id.to_s)
